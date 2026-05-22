@@ -1,4 +1,4 @@
-use std::ops::{Deref, DerefMut};
+use std::ops::{Add, Deref, DerefMut, Sub};
 
 /*
  * todo:
@@ -6,8 +6,8 @@ use std::ops::{Deref, DerefMut};
     [x] right identity
     [x] transpose
     [x] scale
-    [ ] Add (<M, N> + <M, N>)
-    [ ] Sub (<M, N> - <M, N>)
+    [x] Add (<M, N> + <M, N>)
+    [x] Sub (<M, N> - <M, N>)
     [ ] Mul (<M, N> * <N, O>)
     [ ] inverse
     [ ] determinant
@@ -79,6 +79,7 @@ impl<const M: usize, const N: usize> Matrix<M, N> {
             i += 1;
         }
     }
+
 }
 
 impl<const M: usize> Matrix<M, M> {
@@ -107,3 +108,24 @@ impl<const M: usize, const N: usize> DerefMut for Matrix<M, N> {
         &mut self.0
     }
 }
+
+macro_rules! per_op {
+    ($trait_name:ident, $fn_name:ident, $op:tt) => (
+        impl<const M: usize, const N: usize> $trait_name for Matrix<M, N> {
+            type Output = Self;
+
+            fn $fn_name(self, rhs: Self) -> Self {
+                let mut result = Self::zero();
+                for (i, v) in self.0.iter().enumerate() {
+                    for (j, &v) in v.iter().enumerate() {
+                        result[i][j] = v $op rhs[i][j];
+                    }
+                }
+                result
+            }
+        }
+    )
+}
+
+per_op!(Add, add, +);
+per_op!(Sub, sub, -);
