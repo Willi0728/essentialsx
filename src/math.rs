@@ -11,7 +11,7 @@ use core::ops::{Add, Deref, DerefMut, Mul, Sub};
     [x] Mul (<M, N> * <N, O>)
     [ ] inverse
     [x] determinant
-    [ ] trace
+    [x] trace
     [ ] is_* functions:
         [ ] square
         [ ] symmetric
@@ -191,26 +191,29 @@ impl<const M: usize> Matrix<M, M> {
         result
     }
 
-    // pub const fn invert(&self) -> Self {
-    //     todo!("On Hold: requires Determinant");
-    // }
+    pub const fn try_inverse(&self) -> Option<Self> {
+        todo!()
+    }
 
     const fn matrix_elimination_impl<const N: usize>(&self) -> Matrix<N, N> {
+        let mut previous = [[1.0; M]; M];
         let mut current = self.0;
         let mut size = M;
 
         while size > N {
-            let mut next = [[0.0; M]; M];
+            let mut next = Matrix::zero().0;
             let mut r = 0;
             while r + 1 < size {
                 let mut c = 0;
                 while c + 1 < size {
-                    next[r][c] = current[r][c] * current[r + 1][c + 1]
-                        - current[r][c + 1] * current[r + 1][c];
+                    next[r][c] = (current[r][c] * current[r + 1][c + 1]
+                        - current[r][c + 1] * current[r + 1][c])
+                        / previous[r + 1][c + 1];
                     c += 1;
                 }
                 r += 1;
             }
+            previous = current;
             current = next;
             size -= 1;
         }
@@ -227,6 +230,39 @@ impl<const M: usize> Matrix<M, M> {
         }
 
         Matrix(result)
+    }
+
+    const fn determinant_impl(&self) -> f64 {
+        if M == 0 {
+            return 1.0;
+        }
+        if M == 1 {
+            return self.0[0][0];
+        }
+
+        let mut previous = [[1.0; M]; M];
+        let mut current = self.0;
+        let mut size = M;
+
+        while size > 1 {
+            let mut next = Matrix::zero().0;
+            let mut r = 0;
+            while r + 1 < size {
+                let mut c = 0;
+                while c + 1 < size {
+                    next[r][c] = (current[r][c] * current[r + 1][c + 1]
+                        - current[r][c + 1] * current[r + 1][c])
+                        / previous[r + 1][c + 1];
+                    c += 1;
+                }
+                r += 1;
+            }
+            previous = current;
+            current = next;
+            size -= 1;
+        }
+
+        current[0][0]
     }
 
     /// Helper function for Dodgson Condensation. Will repeat until the matrix is NxN
@@ -270,42 +306,21 @@ impl<const M: usize> Matrix<M, M> {
         }
         total
     }
+
+    #[cfg(feature = "unstable")]
+    pub const fn determinant(&self) -> f64 {
+        self.determinant_impl()
+    }
+
+    #[cfg(not(feature = "unstable"))]
+    pub const fn determinant(&self) -> f64 {
+        self.determinant_impl()
+    }
 }
 
 impl Matrix<2, 2> {
     pub const fn determinant_2x2(&self) -> f64 {
         self.0[0][0] * self.0[1][1] - self.0[0][1] * self.0[1][0]
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::Matrix;
-
-    #[test]
-    fn matrix_elimination_produces_adjacent_2x2_determinants() {
-        let matrix = Matrix::<3, 3>::new([
-            [1.0, 2.0, 3.0],
-            [4.0, 5.0, 6.0],
-            [7.0, 8.0, 10.0],
-        ]);
-
-        let eliminated = matrix.matrix_elimination::<2>();
-
-        assert_eq!(eliminated.0, [[-3.0, -3.0], [-3.0, 2.0]]);
-    }
-
-    #[test]
-    fn matrix_elimination_to_1x1_matches_2x2_determinant() {
-        let matrix = Matrix::<2, 2>::new([
-            [3.0, 8.0],
-            [4.0, 6.0],
-        ]);
-
-        let eliminated = matrix.matrix_elimination::<1>();
-
-        assert_eq!(eliminated.0, [[-14.0]]);
-        assert_eq!(matrix.determinant_2x2(), -14.0);
     }
 }
 
@@ -358,5 +373,77 @@ impl<const M: usize, const N: usize, const O: usize> Mul<Matrix<N, O>> for Matri
             }
         }
         result
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Matrix;
+
+    #[test]
+    fn matrix_elimination_produces_adjacent_2x2_determinants() {
+        let matrix = Matrix::<3, 3>::new([
+            [1.0, 2.0, 3.0],
+            [4.0, 5.0, 6.0],
+            [7.0, 8.0, 10.0],
+        ]);
+
+        let eliminated = matrix.matrix_elimination::<2>();
+        assert_eq!(*eliminated, [[-3.0, -3.0], [-3.0, 2.0]]);
+    }
+
+    #[test]
+    fn matrix_elimination_produces_correct_determinant() {
+        let matrix = Matrix::<3, 3>::new([
+            [1.0, 2.0, 3.0],
+            [4.0, 5.0, 6.0],
+            [7.0, 8.0, 10.0],
+        ]);
+
+        let eliminated = matrix.matrix_elimination::<1>();
+        assert_eq!(eliminated[0][0], -3.0);
+    }
+    #[test]
+    fn matrix_elimination_to_1x1_matches_2x2_determinant() {
+        let matrix = Matrix::<2, 2>::new([
+            [3.0, 8.0],
+            [4.0, 6.0],
+        ]);
+
+        let eliminated = matrix.matrix_elimination::<1>();
+
+        assert_eq!(eliminated.0, [[-14.0]]);
+        assert_eq!(matrix.determinant_2x2(), -14.0);
+    }
+
+    #[test]
+    fn determinant_handles_zero_by_zero() {
+        let matrix = Matrix::new([]);
+        assert_eq!(matrix.determinant(), 1.0);
+    }
+
+    #[test]
+    fn determinant_handles_one_by_one() {
+        let matrix = Matrix::new([[7.5]]);
+        assert_eq!(matrix.determinant(), 7.5);
+    }
+
+    #[test]
+    fn determinant_handles_two_by_two() {
+        let matrix = Matrix::new([
+            [3.0, 8.0],
+            [4.0, 6.0],
+        ]);
+        assert_eq!(matrix.determinant(), -14.0);
+    }
+
+    #[test]
+    fn determinant_handles_three_by_three() {
+        let matrix = Matrix::new([
+            [1.0, 2.0, 3.0],
+            [4.0, 5.0, 6.0],
+            [7.0, 8.0, 10.0],
+        ]);
+        assert_eq!(matrix.determinant(), -3.0);
     }
 }
