@@ -106,7 +106,7 @@ impl<const M: usize, const N: usize> Matrix<M, N> {
         [(); N - P]: Sized,
     {
         let mut data = [[0.0; P]; O];
-        self.copy_into(data);
+        self.copy_into(&mut data);
         Matrix(data)
     }
 
@@ -195,42 +195,107 @@ impl<const M: usize> Matrix<M, M> {
     //     todo!("On Hold: requires Determinant");
     // }
 
-    /// Helper function for Dodgson Condensation. Will repeat until the matrix is NxN
-    pub const fn matrix_elimination<const N: usize>(&self) -> Matrix<N, N>
-    where
-        [(); M - 1]: Sized,
-        [(); M - 2]: Sized,
-        [(); M - N]: Sized,
-    {
-        let mut shrunk: Matrix<{ M - 1 }, { M - 1 }> = Matrix::<{ M - 1 }, { M - 1 }>::zero();
-        // we will have to make this recursive, hopefully the performance cost is acceptable,
-        // and it doesn't overflow the stack frames
-        //base cases:
-        if M == 0 {
-            return Matrix::<N, N>::zero()
-        } else if M == 1 {
-            let mut ident = Matrix::<N, N>::identity();
-            ident.0[N - 1][N - 1] = self.0[0][0];
-            return ident
-        } else if M == 2 {
-            return self.shrink::<N, N>()
+    const fn matrix_elimination_impl<const N: usize>(&self) -> Matrix<N, N> {
+        let mut current = self.0;
+        let mut size = M;
+
+        while size > N {
+            let mut next = [[0.0; M]; M];
+            let mut r = 0;
+            while r + 1 < size {
+                let mut c = 0;
+                while c + 1 < size {
+                    next[r][c] = current[r][c] * current[r + 1][c + 1]
+                        - current[r][c + 1] * current[r + 1][c];
+                    c += 1;
+                }
+                r += 1;
+            }
+            current = next;
+            size -= 1;
         }
+
+        let mut result = [[0.0; N]; N];
         let mut r = 0;
-        while r < M - 1 {
+        while r < N {
             let mut c = 0;
-            while c < M - 1 {
-                shrunk.0[r][c] = self.shrink::<2, 2>().determinant_2x2();
+            while c < N {
+                result[r][c] = current[r][c];
                 c += 1;
             }
             r += 1;
         }
-        shrunk.matrix_elimination::<N>()
+
+        Matrix(result)
+    }
+
+    /// Helper function for Dodgson Condensation. Will repeat until the matrix is NxN
+    ///
+    /// ```compile_fail
+    /// use essentialsx::math::Matrix;
+    ///
+    /// let matrix = Matrix::<2, 2>::identity();
+    /// let _ = matrix.matrix_elimination::<3>();
+    /// ```
+    #[cfg(not(feature = "unstable"))]
+    pub const fn matrix_elimination<const N: usize>(&self) -> Matrix<N, N> {
+        const {
+            assert!(N <= M);
+        }
+        self.matrix_elimination_impl::<N>()
+    }
+
+    /// Helper function for Dodgson Condensation. Will repeat until the matrix is NxN
+    ///
+    /// ```compile_fail
+    /// use essentialsx::math::Matrix;
+    ///
+    /// let matrix = Matrix::<2, 2>::identity();
+    /// let _ = matrix.matrix_elimination::<3>();
+    /// ```
+    #[cfg(feature = "unstable")]
+    pub const fn matrix_elimination<const N: usize>(&self) -> Matrix<N, N>
+    where
+        [(); M - N]: Sized,
+    {
+        self.matrix_elimination_impl::<N>()
     }
 }
 
 impl Matrix<2, 2> {
     pub const fn determinant_2x2(&self) -> f64 {
         self.0[0][0] * self.0[1][1] - self.0[0][1] * self.0[1][0]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Matrix;
+
+    #[test]
+    fn matrix_elimination_produces_adjacent_2x2_determinants() {
+        let matrix = Matrix::<3, 3>::new([
+            [1.0, 2.0, 3.0],
+            [4.0, 5.0, 6.0],
+            [7.0, 8.0, 10.0],
+        ]);
+
+        let eliminated = matrix.matrix_elimination::<2>();
+
+        assert_eq!(eliminated.0, [[-3.0, -3.0], [-3.0, 2.0]]);
+    }
+
+    #[test]
+    fn matrix_elimination_to_1x1_matches_2x2_determinant() {
+        let matrix = Matrix::<2, 2>::new([
+            [3.0, 8.0],
+            [4.0, 6.0],
+        ]);
+
+        let eliminated = matrix.matrix_elimination::<1>();
+
+        assert_eq!(eliminated.0, [[-14.0]]);
+        assert_eq!(matrix.determinant_2x2(), -14.0);
     }
 }
 
