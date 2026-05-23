@@ -10,7 +10,7 @@ use core::ops::{Add, Deref, DerefMut, Mul, Sub};
     [x] Sub (<M, N> - <M, N>)
     [x] Mul (<M, N> * <N, O>)
     [ ] inverse
-    [ ] determinant
+    [x] determinant
     [ ] trace
     [ ] is_* functions:
         [ ] square
@@ -259,6 +259,16 @@ impl<const M: usize> Matrix<M, M> {
         [(); M - N]: Sized,
     {
         self.matrix_elimination_impl::<N>()
+    }
+
+    pub const fn trace(&self) -> f64 {
+        let mut i = 0;
+        let mut total = 0.0;
+        while i < M {
+            total += self.0[i][i];
+            i += 1;
+        }
+        total
     }
 }
 
