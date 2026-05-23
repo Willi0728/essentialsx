@@ -1,4 +1,4 @@
-use std::ops::{Add, Deref, DerefMut, Mul, Sub};
+use core::ops::{Add, Deref, DerefMut, Mul, Sub};
 
 /*
  * todo:
@@ -40,9 +40,8 @@ impl<const M: usize, const N: usize> Matrix<M, N> {
     pub const fn transpose(&self) -> Matrix<N, M> {
         let mut result = Matrix::<N, M>::zero();
         let mut i = 0;
-        let mut j;
         while i < M {
-            j = 0;
+            let mut j = 0;
             while j < N {
                 result.0[j][i] = self.0[i][j];
                 j += 1;
@@ -84,23 +83,99 @@ impl<const M: usize, const N: usize> Matrix<M, N> {
     pub const fn mul_inline<const O: usize>(&self, rhs: &Matrix<N, O>) -> Matrix<M, O> {
         let mut result = Matrix::<M, O>::zero();
         let mut i = 0;
-
         while i < M {
-            let mut j = 0;
-            while j < O {
-                let mut c = 0;
-                let mut sum = 0.0;
-                while c < N {
-                    // Perfect sequential row-by-column access
-                    sum += self.0[i][c] * rhs.0[c][j];
-                    c += 1;
+            let mut c = 0;
+            while c < N {
+                let self_val = self.0[i][c];
+                let mut j = 0;
+                while j < O {
+                    result.0[i][j] += self_val * rhs.0[c][j];
+                    j += 1;
                 }
-                result.0[i][j] = sum;
-                j += 1;
+                c += 1;
             }
             i += 1;
         }
         result
+    }
+
+    #[cfg(feature = "unstable")]
+    pub const fn shrink<const O: usize, const P: usize>(&self) -> Matrix<O, P>
+    where
+        [(); M - O]: Sized,
+        [(); N - P]: Sized,
+    {
+        let mut data = [[0.0; P]; O];
+        self.copy_into(data);
+        Matrix(data)
+    }
+
+    #[cfg(not(feature = "unstable"))]
+    pub const fn shrink<const O: usize, const P: usize>(&self) -> Matrix<O, P> {
+        const {
+            assert!(O <= M);
+            assert!(P <= N);
+        }
+        let mut data = [[0.0; P]; O];
+        self.copy_into(&mut data);
+        Matrix(data)
+    }
+
+    pub const fn copy_into<const O: usize, const P: usize>(&self, data: &mut [[f64; P]; O]) {
+        let mut r = 0;
+        while r < O {
+            let mut c = 0;
+            while c < P {
+                data[r][c] = self.0[r][c];
+                c += 1;
+            }
+            r += 1;
+        }
+    }
+
+    #[cfg(not(feature = "unstable"))]
+    #[inline]
+    pub const fn shrink_one<const FROM_M: usize, const FROM_N: usize>(
+        from: &Matrix<FROM_M, FROM_N>
+    ) -> Self {
+        const {
+            assert!(FROM_M == M + 1);
+            assert!(FROM_N == N + 1);
+        }
+        let mut data = [[0.0; N]; M];
+        let mut r = 0;
+        while r < M {
+            let mut c = 0;
+            while c < N {
+                data[r][c] = from.0[r][c];
+                c += 1;
+            }
+            r += 1;
+        }
+        Self(data)
+    }
+
+    #[cfg(feature = "unstable")]
+    #[inline]
+    pub const fn shrink_one(&self) -> Matrix<{ M - 1 }, { N - 1 }>
+    where
+        [(); M - 1]: Sized,
+        [(); N - 1]: Sized,
+    {
+        let mut data = [[0.0; { N - 1 }]; { M - 1 }];
+        let mut r = 0;
+        while r < M - 1 {
+            let mut c = 0;
+            while c < N - 1 {
+                data[r][c] = self.0[r][c];
+                c += 1;
+            }
+            r += 1;
+        }
+        Matrix(data)
+    }
+    pub const fn new(data: [[f64; N]; M]) -> Self {
+        Self(data)
     }
 }
 
@@ -114,6 +189,48 @@ impl<const M: usize> Matrix<M, M> {
             i += 1;
         }
         result
+    }
+
+    // pub const fn invert(&self) -> Self {
+    //     todo!("On Hold: requires Determinant");
+    // }
+
+    /// Helper function for Dodgson Condensation. Will repeat until the matrix is NxN
+    pub const fn matrix_elimination<const N: usize>(&self) -> Matrix<N, N>
+    where
+        [(); M - 1]: Sized,
+        [(); M - 2]: Sized,
+        [(); M - N]: Sized,
+    {
+        let mut shrunk: Matrix<{ M - 1 }, { M - 1 }> = Matrix::<{ M - 1 }, { M - 1 }>::zero();
+        // we will have to make this recursive, hopefully the performance cost is acceptable,
+        // and it doesn't overflow the stack frames
+        //base cases:
+        if M == 0 {
+            return Matrix::<N, N>::zero()
+        } else if M == 1 {
+            let mut ident = Matrix::<N, N>::identity();
+            ident.0[N - 1][N - 1] = self.0[0][0];
+            return ident
+        } else if M == 2 {
+            return self.shrink::<N, N>()
+        }
+        let mut r = 0;
+        while r < M - 1 {
+            let mut c = 0;
+            while c < M - 1 {
+                shrunk.0[r][c] = self.shrink::<2, 2>().determinant_2x2();
+                c += 1;
+            }
+            r += 1;
+        }
+        shrunk.matrix_elimination::<N>()
+    }
+}
+
+impl Matrix<2, 2> {
+    pub const fn determinant_2x2(&self) -> f64 {
+        self.0[0][0] * self.0[1][1] - self.0[0][1] * self.0[1][0]
     }
 }
 
