@@ -1,4 +1,4 @@
-use std::ops::{Add, Deref, DerefMut, Sub};
+use std::ops::{Add, Deref, DerefMut, Mul, Sub};
 
 /*
  * todo:
@@ -8,7 +8,7 @@ use std::ops::{Add, Deref, DerefMut, Sub};
     [x] scale
     [x] Add (<M, N> + <M, N>)
     [x] Sub (<M, N> - <M, N>)
-    [ ] Mul (<M, N> * <N, O>)
+    [x] Mul (<M, N> * <N, O>)
     [ ] inverse
     [ ] determinant
     [ ] trace
@@ -80,6 +80,28 @@ impl<const M: usize, const N: usize> Matrix<M, N> {
         }
     }
 
+    #[inline(always)]
+    pub const fn mul_inline<const O: usize>(&self, rhs: &Matrix<N, O>) -> Matrix<M, O> {
+        let mut result = Matrix::<M, O>::zero();
+        let mut i = 0;
+
+        while i < M {
+            let mut j = 0;
+            while j < O {
+                let mut c = 0;
+                let mut sum = 0.0;
+                while c < N {
+                    // Perfect sequential row-by-column access
+                    sum += self.0[i][c] * rhs.0[c][j];
+                    c += 1;
+                }
+                result.0[i][j] = sum;
+                j += 1;
+            }
+            i += 1;
+        }
+        result
+    }
 }
 
 impl<const M: usize> Matrix<M, M> {
@@ -129,3 +151,20 @@ macro_rules! per_op {
 
 per_op!(Add, add, +);
 per_op!(Sub, sub, -);
+
+impl<const M: usize, const N: usize, const O: usize> Mul<Matrix<N, O>> for Matrix<M, N> {
+    type Output = Matrix<M, O>;
+
+    //standard is O(n^3)
+    fn mul(self, rhs: Matrix<N, O>) -> Self::Output {
+        let mut result = Self::Output::zero();
+        for i in 0..M {
+            for j in 0..O {
+                for c in 0..N {
+                    result[i][j] += self[i][c] * rhs.0[c][j];
+                }
+            }
+        }
+        result
+    }
+}
