@@ -12,8 +12,8 @@ use core::ops::{Add, Deref, DerefMut, Mul, Sub};
    [x] inverse
    [x] determinant
    [x] trace
-   [ ] is_* functions:
-       [ ] square
+   [-] is_* functions:
+       [x] square
        [ ] symmetric
        [ ] diagonal
 */
@@ -269,6 +269,10 @@ impl<const M: usize, const N: usize> Matrix<M, N> {
         let mut copy = Matrix(self.0);
         copy.scalar_mul_inplace(scalar);
         copy
+    }
+
+    pub const fn is_square(&self) -> bool {
+        const { M == N }
     }
 
     pub const fn new(data: [[f64; N]; M]) -> Self {
