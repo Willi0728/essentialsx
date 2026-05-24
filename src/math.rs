@@ -14,7 +14,7 @@ use core::ops::{Add, Deref, DerefMut, Mul, Sub};
    [x] trace
    [-] is_* functions:
        [x] square
-       [ ] symmetric
+       [x] symmetric
        [ ] diagonal
 */
 
@@ -273,6 +273,16 @@ impl<const M: usize, const N: usize> Matrix<M, N> {
 
     pub const fn is_square(&self) -> bool {
         const { M == N }
+    }
+
+    pub const fn is_symmetric(&self) -> bool {
+        let other = self.transpose();
+        ij_loop!(i until M, j until N, {
+            if self.0[i][j] != other.0[i][j] {
+                return false;
+            }
+        });
+        true
     }
 
     pub const fn new(data: [[f64; N]; M]) -> Self {
