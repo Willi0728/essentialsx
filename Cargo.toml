@@ -4,6 +4,11 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+criterion = "0.8.2"
+
+[[bench]]
+name = "matrix_benches"
+harness = false
 
 [features]
 default = ["std", "io", "math"]

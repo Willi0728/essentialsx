@@ -1,5 +1,5 @@
 use std::{
-    io::{self, Write},
+    io::{self, Error, Write},
     str::FromStr,
 };
 pub fn input<T: FromStr>(prompt: &str) -> io::Result<T>
@@ -14,5 +14,5 @@ where
     if input.ends_with('\r') {
         input.pop();
     }
-    input.parse::<T>().map_err(|e| io::Error::other(e))
+    input.parse::<T>().map_err(Error::other)
 }
