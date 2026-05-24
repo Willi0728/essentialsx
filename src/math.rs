@@ -1,23 +1,5 @@
 use core::ops::{Add, Deref, DerefMut, Mul, Sub};
 
-/*
-* todo:
-   [x] left identity
-   [x] right identity
-   [x] transpose
-   [x] scale
-   [x] Add (<M, N> + <M, N>)
-   [x] Sub (<M, N> - <M, N>)
-   [x] Mul (<M, N> * <N, O>)
-   [x] inverse
-   [x] determinant
-   [x] trace
-   [-] is_* functions:
-       [x] square
-       [x] symmetric
-       [ ] diagonal
-*/
-
 macro_rules! ij_loop {
     ($iident:ident until $stop1:expr, $jident:ident until $stop2:expr, $body:tt) => {
         let mut $iident = 0;
@@ -32,7 +14,7 @@ macro_rules! ij_loop {
     };
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialOrd, PartialEq)]
 pub struct Matrix<const M: usize, const N: usize>(pub [[f64; N]; M]);
 
 impl<const M: usize, const N: usize> Matrix<M, N> {
@@ -275,26 +257,6 @@ impl<const M: usize, const N: usize> Matrix<M, N> {
         const { M == N }
     }
 
-    pub const fn is_symmetric(&self) -> bool {
-        let other = self.transpose();
-        ij_loop!(i until M, j until N, {
-            if self.0[i][j] != other.0[i][j] {
-                return false;
-            }
-        });
-        true
-    }
-
-    pub const fn is_diagonal(&self) -> bool {
-        ij_loop!(i until M, j until N, {
-            if i == j { continue; }
-            if self.0[i][j] != 0.0 {
-                return false;
-            }
-        });
-        true
-    }
-
     pub const fn new(data: [[f64; N]; M]) -> Self {
         Self(data)
     }
@@ -478,6 +440,25 @@ impl<const M: usize> Matrix<M, M> {
         let mut copied = Matrix(self.0);
         let flips = copied.make_upper_triangular();
         (flips, copied)
+    }
+
+    pub const fn is_symmetric(&self) -> bool {
+        ij_loop!(i until M, j until M, {
+            if self.0[i][j] != self.0[j][i] {
+                return false;
+            }
+        });
+        true
+    }
+
+    pub const fn is_diagonal(&self) -> bool {
+        ij_loop!(i until M, j until M, {
+            if i == j { j += 1; continue; }
+            if self.0[i][j] != 0.0 {
+                return false;
+            }
+        });
+        true
     }
 }
 
