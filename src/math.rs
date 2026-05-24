@@ -285,6 +285,16 @@ impl<const M: usize, const N: usize> Matrix<M, N> {
         true
     }
 
+    pub const fn is_diagonal(&self) -> bool {
+        ij_loop!(i until M, j until N, {
+            if i == j { continue; }
+            if self.0[i][j] != 0.0 {
+                return false;
+            }
+        });
+        true
+    }
+
     pub const fn new(data: [[f64; N]; M]) -> Self {
         Self(data)
     }
