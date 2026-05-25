@@ -281,7 +281,7 @@ impl<const M: usize> Matrix<M, M> {
         let mut copy = Matrix(self.0);
         //minors
         ij_loop!(i until M, j until M, {
-            let removed = self.pop_row::<O>(i).pop_col::<O>(j);
+            let removed = self.pop_row_impl::<O>(i).pop_col_impl::<O>(j);
             copy.0[i][j] = removed.determinant();
         });
         //cofactors
@@ -463,6 +463,7 @@ impl<const M: usize> Matrix<M, M> {
 }
 
 impl Matrix<2, 2> {
+    #[inline(always)]
     pub const fn determinant_2x2(&self) -> f64 {
         self.0[0][0] * self.0[1][1] - self.0[0][1] * self.0[1][0]
     }

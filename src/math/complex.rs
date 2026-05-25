@@ -67,16 +67,21 @@ where
     B: Clone,
     C: Clone,
     D: Clone,
+    CCDD: Clone,
 {
     type Output = Complex<RO, IO>;
 
+    /// div does not make sure that this formula is mathematically sound! It only checks for the
+    /// minimum set of operators needed to work the formula. If you create a type T where
+    /// Add<T, Output=T> actually subtracts it, that's on you. The main reason for this is
+    /// heterogeneous multiplication, e.g. f32 + f64 or something crazier.
     fn div(self, rhs: Complex<C, D>) -> Self::Output {
         let (a, b) = (self.re, self.im);
         let (c, d) = (rhs.re, rhs.im);
+        let den = c.clone() * c.clone() + d.clone() * d.clone();
         Complex::from_parts(
-            (a.clone() * c.clone() + b.clone() * d.clone()) /
-                (c.clone() * c.clone() + d.clone() * d.clone()),
-            (b * c.clone() - a * d.clone()) / (c.clone() * c + d.clone() * d),
+            (a.clone() * c.clone() + b.clone() * d.clone()) / den.clone(),
+            (b * c - a * d) / den,
         )
     }
 }
