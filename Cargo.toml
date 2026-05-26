@@ -13,7 +13,8 @@ name = "matrix_benches"
 harness = false
 
 [features]
-default = ["std", "io", "math"]
+default = ["std", "io", "math", "fs"]
+fs = ["std"]
 io = ["std"]
 math = []
 std = ["alloc"]

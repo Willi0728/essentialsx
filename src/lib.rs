@@ -5,6 +5,8 @@
 pub mod io;
 #[cfg(feature = "math")]
 pub mod math;
+#[cfg(feature = "fs")]
+pub mod fs;
 
 #[cfg(test)]
 mod tests {
