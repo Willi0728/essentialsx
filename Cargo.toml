@@ -2,6 +2,12 @@
 name = "essentialsx"
 version = "0.1.0"
 edition = "2024"
+description = "Essentials for everything"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/Willi0728/essentialsx"
+readme = "README.md"
+keywords = ["cli", "essentials", "io"]
+categories = ["mathematics", "filesystem"]
 
 [dependencies]
 
