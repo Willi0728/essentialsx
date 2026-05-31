@@ -10,7 +10,7 @@ pub use complex::Complex;
 // ShlAssign, ShrAssign, Display, Debug, Binary, Octal, LowerHex, UpperHex, LowerExp, UpperExp,
 // FromStr, Product, Sum, Step
 
-mod nibble {
+pub mod nibble {
     #[allow(non_camel_case_types)]
     #[derive(Copy, Clone, PartialEq, Debug)]
     pub struct u4(u8);

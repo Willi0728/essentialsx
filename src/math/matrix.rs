@@ -1,5 +1,8 @@
 use core::ops::{Add, Deref, DerefMut, Mul, Sub};
 
+/// A macro for quickly iterating over i and j in const contexts.
+/// Compatible with Matrix, to iterate over N and M
+#[macro_export]
 macro_rules! ij_loop {
     ($iident:ident until $stop1:expr, $jident:ident until $stop2:expr, $body:tt) => {
         let mut $iident = 0;
@@ -14,67 +17,126 @@ macro_rules! ij_loop {
     };
 }
 
-#[derive(Debug, Clone, PartialOrd, PartialEq)]
+/// A matrix, representing various sizes through the constant generics M and N
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Matrix<const M: usize, const N: usize>(pub [[f64; N]; M]);
 
 impl<const M: usize, const N: usize> Matrix<M, N> {
+    /// A zero matrix.
+    /// Example:
+    /// ```
+    /// use essentialsx::math::Matrix;
+    ///
+    /// let zero = Matrix::<3, 3>::zero();
+    /// let something_else = Matrix::<3, 3>::new([
+    ///     [1.0, 2.0, 3.0],
+    ///     [4.0, 5.0, 6.0],
+    ///     [7.0, 8.0, 10.0],
+    /// ]);
+    /// assert_eq!(zero * something_else, zero);
+    /// ```
     #[inline]
     pub const fn zero() -> Self {
         Self([[0.0; N]; M])
     }
 
+    /// The left identity for any size matrix. Note that it does not return Self!
+    /// ```
+    /// use essentialsx::math::Matrix;
+    ///
+    /// let left = Matrix::<3, 3>::left_identity();
+    /// let something_else = Matrix::<3, 3>::new([
+    ///     [1.0, 2.0, 3.0],
+    ///     [4.0, 5.0, 6.0],
+    ///     [7.0, 8.0, 10.0],
+    /// ]);
+    /// assert_eq!(left * something_else, something_else);
+    /// ```
     #[inline]
     pub const fn left_identity() -> Matrix<M, M> {
         Matrix::<M, M>::identity()
     }
 
+    /// The right identity for any size matrix. Note that it does not return Self!
+    /// ```
+    /// use essentialsx::math::Matrix;
+    ///
+    /// let right = Matrix::<3, 3>::right_identity();
+    /// let something_else = Matrix::<3, 3>::new([
+    ///     [1.0, 2.0, 3.0],
+    ///     [4.0, 5.0, 6.0],
+    ///     [7.0, 8.0, 10.0],
+    /// ]);
+    /// assert_eq!(something_else * right, something_else);
+    /// ```
     #[inline]
     pub const fn right_identity() -> Matrix<N, N> {
         Matrix::<N, N>::identity()
     }
 
+    /// The transposition of a matrix, $M^{T}$.
+    /// ```
+    /// use essentialsx::math::Matrix;
+    ///
+    /// let matrix = Matrix::<3, 3>::new([
+    ///     [1.0, 2.0, 3.0],
+    ///     [4.0, 5.0, 6.0],
+    ///     [7.0, 8.0, 10.0],
+    /// ]);
+    /// let rotated = Matrix::<3, 3>::new([
+    ///     [1.0, 4.0, 7.0],
+    ///     [2.0, 5.0, 8.0],
+    ///     [3.0, 6.0, 10.0],
+    /// ]);
+    /// assert_eq!(matrix.transpose(), rotated);
+    /// ```
     pub const fn transpose(&self) -> Matrix<N, M> {
         self.transpose_inline()
     }
 
+    /// See [`Matrix::transpose`]
     #[inline(always)]
     pub const fn transpose_inline(&self) -> Matrix<N, M> {
         let mut result = Matrix::<N, M>::zero();
         ij_loop!(i until M, j until N, {
             result.0[j][i] = self.0[i][j];
-            j += 1;
         });
         result
     }
 
-    pub const fn scale(&self, factor: f64) -> Matrix<M, N> {
-        let mut result = Matrix::<M, N>::zero();
-        let mut i = 0;
-        let mut j;
-        while i < M {
-            j = 0;
-            while j < N {
-                result.0[i][j] = self.0[i][j] * factor;
-                j += 1;
-            }
-            i += 1;
-        }
+    /// Multiplies the matrix element-wise.
+    /// ```
+    /// use essentialsx::math::Matrix;
+    ///
+    /// let matrix = Matrix::<3, 3>::new([
+    ///     [1.0, 2.0, 3.0],
+    ///     [4.0, 5.0, 6.0],
+    ///     [7.0, 8.0, 10.0],
+    /// ]);
+    /// let scaled = Matrix::<3, 3>::new([
+    ///     [2.0, 4.0, 6.0],
+    ///     [8.0, 10.0, 12.0],
+    ///     [14.0, 16.0, 20.0],
+    /// ]);
+    /// assert_eq!(matrix.scale(2.0), scaled);
+    /// ```
+    pub const fn scale(&self, factor: f64) -> Self {
+        let mut result = Matrix::zero();
+        ij_loop!(i until M, j until N, {
+            result.0[i][j] = self.0[i][j] * factor;
+        });
         result
     }
 
+    /// Does the same thing as [`Matrix::scale`], but in-place.
     pub const fn scale_mut(&mut self, factor: f64) {
-        let mut i = 0;
-        let mut j;
-        while i < M {
-            j = 0;
-            while j < N {
-                self.0[i][j] = self.0[i][j] * factor;
-                j += 1;
-            }
-            i += 1;
-        }
+        ij_loop!(i until M, j until N, {
+            self.0[i][j] = self.0[i][j] * factor;
+        });
     }
 
+    /// Standard matrix multiplication, inlined into the caller.
+    /// See [`Matrix::mul`]
     #[inline(always)]
     pub const fn mul_inline<const O: usize>(&self, rhs: &Matrix<N, O>) -> Matrix<M, O> {
         let mut result = Matrix::<M, O>::zero();
@@ -89,40 +151,86 @@ impl<const M: usize, const N: usize> Matrix<M, N> {
         result
     }
 
-    #[cfg(feature = "unstable")]
-    pub const fn shrink<const O: usize, const P: usize>(&self) -> Matrix<O, P>
-    where
-        [(); M - O]: Sized,
-        [(); N - P]: Sized,
-    {
+    /// Resizes a matrix.
+    ///
+    /// If a dimension is greater, it will extend with zeros.
+    /// If a dimension is equal, it will copy exactly.
+    /// If a dimension is smaller, it will truncate.
+    ///
+    /// Internally, resize uses [`Matrix::copy_into`].
+    ///
+    /// Example:
+    /// ```
+    /// use essentialsx::math::Matrix;
+    ///
+    /// let matrix = Matrix::<3, 3>::new([
+    ///     [1.0, 2.0, 3.0],
+    ///     [4.0, 5.0, 6.0],
+    ///     [7.0, 8.0, 10.0],
+    /// ]);
+    /// let expected_small = Matrix::<2, 2>::new([
+    ///     [1.0, 2.0],
+    ///     [4.0, 5.0],
+    /// ]);
+    /// let expected_larger = Matrix::<4, 4>::new([
+    ///     [1.0, 2.0, 3.0, 0.0],
+    ///     [4.0, 5.0, 6.0, 0.0],
+    ///     [7.0, 8.0, 10.0, 0.0],
+    ///     [0.0, 0.0, 0.0, 0.0]
+    /// ]);
+    /// assert_eq!(matrix.resize::<2, 2>(), expected_small);
+    /// assert_eq!(matrix.resize::<3, 3>(), matrix);
+    /// assert_eq!(matrix.resize::<4, 4>(), expected_larger);
+    /// ```
+    pub const fn resize<const O: usize, const P: usize>(&self) -> Matrix<O, P> {
         let mut data = [[0.0; P]; O];
-        self.copy_into(&mut data);
-        Matrix(data)
-    }
-
-    #[cfg(not(feature = "unstable"))]
-    pub const fn shrink<const O: usize, const P: usize>(&self) -> Matrix<O, P> {
-        const {
-            assert!(O <= M);
-            assert!(P <= N);
-        }
-        let mut data = [[0.0; P]; O];
-        self.copy_into(&mut data);
-        Matrix(data)
-    }
-
-    pub const fn copy_into<const O: usize, const P: usize>(&self, data: &mut [[f64; P]; O]) {
-        let mut r = 0;
-        while r < O {
-            let mut c = 0;
-            while c < P {
-                data[r][c] = self.0[r][c];
-                c += 1;
+        if const { (O == M) & (P == N) } {
+            unsafe {
+                core::ptr::copy_nonoverlapping(
+                    self.0.as_ptr() as *const f64,
+                    data.as_mut_ptr() as *mut f64,
+                    M * N,
+                );
             }
-            r += 1;
+            return Matrix(data)
         }
+        self.copy_into(&mut data);
+        Matrix(data)
     }
 
+    /// Self-explanatory - this function copies the inner contents of the Matrix into another
+    /// nested array struction that does not have to be the same size. If the resulting size is the
+    /// same, it directly copies. If it is bigger, it will leave the elements with a larger index
+    /// untouched. If smaller, it will truncate.
+    pub const fn copy_into<const O: usize, const P: usize>(&self, data: &mut [[f64; P]; O]) {
+        let min_om = const { (O + M - O.abs_diff(M)) / 2 };
+        let min_pn = const { (P + N - P.abs_diff(N)) / 2 };
+
+        ij_loop!(i until min_om, j until min_pn, {
+            data[i][j] = self.0[i][j];
+        });
+    }
+
+    /// Shrinks the matrix by one element on the right and bottom, discarding the outer elements.
+    /// This is the non-unstable version, meaning you have to pass in the original matrix size as
+    /// generic arguments. [`Matrix::resize`] is preferred for this, though.
+    ///
+    /// Example:
+    /// ```
+    /// use essentialsx::math::Matrix;
+    ///
+    /// let matrix = Matrix::<3, 3>::new([
+    ///     [1.0, 2.0, 3.0],
+    ///     [4.0, 5.0, 6.0],
+    ///     [7.0, 8.0, 10.0],
+    /// ]);
+    /// let expected = Matrix::<2, 2>::new([
+    ///     [1.0, 2.0],
+    ///     [4.0, 5.0]
+    /// ]);
+    ///
+    /// assert_eq!(Matrix::shrink_one(&matrix), expected)
+    /// ```
     #[cfg(not(feature = "unstable"))]
     #[inline]
     pub const fn shrink_one<const FROM_M: usize, const FROM_N: usize>(
@@ -133,15 +241,9 @@ impl<const M: usize, const N: usize> Matrix<M, N> {
             assert!(FROM_N == N + 1);
         }
         let mut data = [[0.0; N]; M];
-        let mut r = 0;
-        while r < M {
-            let mut c = 0;
-            while c < N {
-                data[r][c] = from.0[r][c];
-                c += 1;
-            }
-            r += 1;
-        }
+        ij_loop!(r until M, c until N, {
+            data[r][c] = from.0[r][c]
+        });
         Self(data)
     }
 
@@ -523,7 +625,8 @@ impl<const M: usize, const N: usize, const O: usize> Mul<Matrix<N, O>> for Matri
 
 #[cfg(test)]
 mod tests {
-    use super::Matrix;
+    use approx::assert_relative_eq;
+    use super::*;
 
     #[test]
     fn matrix_elimination_produces_adjacent_2x2_determinants() {
@@ -571,6 +674,6 @@ mod tests {
     #[test]
     fn determinant_handles_three_by_three() {
         let matrix = Matrix::new([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 10.0]]);
-        assert_eq!(matrix.determinant(), -3.0);
+        assert_relative_eq!(matrix.determinant().round(), -3.0);
     }
 }

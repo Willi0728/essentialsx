@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(feature = "unstable", allow(incomplete_features))]
 #![cfg_attr(feature = "unstable", feature(generic_const_exprs))]
-#[cfg(feature = "io")]
+// feature flag moved into io
 pub mod io;
 #[cfg(feature = "math")]
 pub mod math;

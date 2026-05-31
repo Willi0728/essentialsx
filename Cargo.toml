@@ -1,28 +1,34 @@
 [package]
 name = "essentialsx"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 description = "Essentials for everything"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/Willi0728/essentialsx"
 readme = "README.md"
 keywords = ["cli", "essentials", "io"]
-categories = ["mathematics", "filesystem"]
+categories = ["mathematics", "filesystem", "command-line-interface"]
 
 [dependencies]
+bytes = { version =  "1.11.1", optional = true }
+crossterm = {  version = "0.29.0", optional = true }
 
 [dev-dependencies]
 criterion = "0.8.2"
+approx = "0.6.0-rc2"
 
 [[bench]]
 name = "matrix_benches"
 harness = false
 
 [features]
-default = ["std", "io", "math", "fs"]
+default = []
+full = ["std", "io", "math", "fs", "alloc", "repl"]
 fs = ["std"]
 io = ["std"]
 math = []
 std = ["alloc"]
 alloc = []
+repl = ["alloc"]
 unstable = []
+__bytes = ["dep:bytes", "dep:crossterm"]
